@@ -59,7 +59,7 @@ N.B. to give you a bit more data I included data from previous years (Study1, St
 # Load the libraries
 library(pacman, tidyverse)
 p_load(ggplot2, gridExtra, tidyverse, groupdata2, purr, stats)
-?lag #package stats
+
 # Load the file
 s1_t1 <- read.csv("Data/Study1_G1_T1_Synchronous.csv")
 good <- read.csv("Data/Study3_G2_T2_Synchronous.csv")
@@ -297,18 +297,12 @@ phys_data %>% subset(study==4) %>%
   geom_line(aes(actual_time_min,HR2),color="blue") + 
   facet_grid(group ~ trial)
 
-phys_data %>% subset(study==3) %>%
+phys_data %>% subset(study==4) %>%
   ggplot() + 
   geom_line(aes(actual_time_min,Resp1),color="red") + 
   geom_line(aes(actual_time_min,Resp2),color="blue") + 
   facet_grid(group ~ trial)
 
-# Remove bad data for HR
-overview_HR <- phys_data %>% 
-  group_by(file) %>% 
-  summarise(
-    sum(duplicated(HR1)),
-    sum(duplicated(HR2)))
 
 # Romove bad heart rate data
 # Removing after 3 min.
@@ -332,8 +326,7 @@ phys_data$HR2 <- ifelse(phys_data$file %in% bad_files , NA, phys_data$HR2)
 write.csv(phys_data, file = "physiological_data.csv")
 phys_data <- read.csv("physiological_data.csv")    
 
-# Looking at HR
-phys_data <- read.csv("physiological_data.csv")
+
 ```
 
 Plotting individual trials
@@ -425,6 +418,7 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 
 ```{r}
+phys_data <- read.csv("physiological_data.csv")
 #lme4 can do a trick to invert betas by adding - 1  
 # Genearate a column for each: previous HR1, HR2, Resp1, Resp2
 phys_data$study <- as.numeric(phys_data$study)
@@ -452,15 +446,128 @@ phys_data <- phys_data %>%
 
 phys_data <- phys_data %>% 
   mutate(
-    HR_change1 = (HR1_future - HR1),
-    HR_change2 = (HR2_future - HR2),
-    Resp_change1 = (Resp1_future - Resp1),
-    Resp_change2 = (Resp2_future - Resp1)
+    HR1_change = (HR1_future - HR1),
+    HR2_change = (HR2_future - HR2),
+    Resp1_change = (Resp1_future - Resp1),
+    Resp2_change = (Resp2_future - Resp1)
   )
 
 # Make the data long, so we can analyze both participants at the same time 
 ## N.B. This is a bit tricky and you might have to do it in several steps
+d_hr_future <- 
+  gather(phys_data, # data        
+         participant, HR_future, # new vars
+         HR1_future, HR2_future) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, HR_future, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
 
+d_resp_future <- 
+  gather(phys_data, # data        
+         participant, Resp_future, # new vars
+         Resp1_future, Resp2_future) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, Resp_future, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_hr_change_self <- 
+  gather(phys_data, # data        
+         participant, HR_change_self, # new vars
+         HR1_change, HR2_change) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, HR_change_self, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_resp_change_self <- 
+  gather(phys_data, # data        
+         participant, Resp_change_self, # new vars
+         Resp1_change, Resp2_change) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, Resp_change_self, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_hr_self <- 
+  gather(phys_data, # data        
+         participant, HR_self, # new vars
+         HR1, HR2) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, HR_self, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_resp_self <- 
+  gather(phys_data, # data        
+         participant, Resp_self, # new vars
+         Resp1, Resp2) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, Resp_self, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+phys_data_other <- phys_data %>% 
+  rename(
+    HR1 = "HR2",
+    HR2 = "HR1",
+    Resp1 = "Resp2",
+    Resp2 = "Resp1",
+    HR1_change = "HR2_change",
+    HR2_change = "HR1_change",
+    Resp1_change = "Resp2_change",
+    Resp2_change = "Resp1_change"
+  )
+
+d_hr_change_other <- 
+  gather(phys_data_other, # data        
+         participant, HR_change_other, # new vars
+         HR1_change, HR2_change) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, HR_change_other, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_resp_change_other <- 
+  gather(phys_data_other, # data        
+         participant, Resp_change_other, # new vars
+         Resp1_change, Resp2_change) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, Resp_change_other, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_hr_other <- 
+  gather(phys_data_other, # data        
+         participant, HR_other, # new vars
+         HR1, HR2) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, HR_other, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+d_resp_other <- 
+  gather(phys_data_other, # data        
+         participant, Resp_other, # new vars
+         Resp1, Resp2) %>% #old vars
+  select( # drop irrelevant vars
+    actual_time_min, Resp_other, participant, study, group, condition, trial) %>%
+  mutate( # create unique participant ID
+    participant = parse_number(as.character(group)) * 100 + 
+      parse_number(participant))
+
+dd <- cbind(d_hr_change_self,d_hr_change_other,d_resp_change_self,d_resp_change_other,d_hr_future,d_resp_future,d_hr_self,d_hr_other,d_resp_self,d_resp_other) 
+dd <- dd %>%  select(actual_time_min,participant,group,condition,trial,study,HR_self,Resp_self,HR_other,Resp_other,HR_future,Resp_future,HR_change_self,HR_change_other,Resp_change_self,Resp_change_other)
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
 
 # Model change as a function of own and other previous state 
